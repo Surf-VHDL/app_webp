@@ -72,6 +72,52 @@ uv pip install -r requirements.txt
 uv run python app_webp.py
 ```
 
+## Icona app
+
+L'app cerca automaticamente un'icona in questa sequenza:
+
+1. `assets/icon.icns`
+2. `assets/icon.png`
+3. `assets/icon.svg`
+4. `assets/app_webp.svg` (fallback gia incluso nel progetto)
+
+Per personalizzare l'icona, aggiungi uno dei file sopra in `assets/`.
+
+## Build macOS .app (con uv + PyInstaller)
+
+Esegui senza installare globalmente PyInstaller:
+
+```bash
+uv tool run pyinstaller --windowed --name app_webp --add-data "assets:assets" app_webp.py
+```
+
+Se vuoi l'icona nel bundle `.app`, usa `icon.icns`:
+
+```bash
+uv tool run pyinstaller --windowed --name app_webp --icon assets/icon.icns --add-data "assets:assets" app_webp.py
+```
+
+Output finale in `dist/app_webp.app`.
+
+### Come generare `assets/icon.icns` da un PNG 1024x1024
+
+Assumendo il file sorgente `assets/icon.png`:
+
+```bash
+mkdir -p assets/icon.iconset
+sips -z 16 16 assets/icon.png --out assets/icon.iconset/icon_16x16.png
+sips -z 32 32 assets/icon.png --out assets/icon.iconset/icon_16x16@2x.png
+sips -z 32 32 assets/icon.png --out assets/icon.iconset/icon_32x32.png
+sips -z 64 64 assets/icon.png --out assets/icon.iconset/icon_32x32@2x.png
+sips -z 128 128 assets/icon.png --out assets/icon.iconset/icon_128x128.png
+sips -z 256 256 assets/icon.png --out assets/icon.iconset/icon_128x128@2x.png
+sips -z 256 256 assets/icon.png --out assets/icon.iconset/icon_256x256.png
+sips -z 512 512 assets/icon.png --out assets/icon.iconset/icon_256x256@2x.png
+sips -z 512 512 assets/icon.png --out assets/icon.iconset/icon_512x512.png
+sips -z 1024 1024 assets/icon.png --out assets/icon.iconset/icon_512x512@2x.png
+iconutil -c icns assets/icon.iconset -o assets/icon.icns
+```
+
 ## Troubleshooting rapido
 
 - Errore `cwebp non trovato`:

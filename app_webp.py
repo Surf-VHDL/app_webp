@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QSettings, Qt, QThread, QTimer, Signal, Slot
-from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -37,6 +37,17 @@ from PySide6.QtWidgets import (
 APP_ORG = "app_webp"
 APP_NAME = "app_webp"
 SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+DEFAULT_WINDOW_WIDTH = 960
+DEFAULT_WINDOW_HEIGHT = 830
+MIN_WINDOW_WIDTH = 820
+MIN_WINDOW_HEIGHT = 600
+APP_DIR = Path(__file__).resolve().parent
+ICON_CANDIDATES = [
+    APP_DIR / "assets" / "icon.icns",
+    APP_DIR / "assets" / "icon.png",
+    APP_DIR / "assets" / "icon.svg",
+    APP_DIR / "assets" / "app_webp.svg",
+]
 
 
 @dataclass
@@ -182,8 +193,8 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("app_webp")
-        self.resize(920, 620)
-        self.setMinimumSize(760, 460)
+        self.resize(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT)
+        self.setMinimumSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
 
         self.settings = QSettings(APP_ORG, APP_NAME)
         self.input_files: list[Path] = []
@@ -194,6 +205,7 @@ class MainWindow(QMainWindow):
 
         self._build_ui()
         self._load_settings()
+        self._update_window_size_status()
         QTimer.singleShot(0, self._startup_check_cwebp)
 
     def _build_ui(self) -> None:
@@ -205,11 +217,11 @@ class MainWindow(QMainWindow):
         layout.setSpacing(12)
 
         self.drop_zone = DropZone()
-        self.drop_zone.setMinimumHeight(140)
+        self.drop_zone.setMinimumHeight(155)
         self.drop_zone.files_dropped.connect(self._add_files)
 
         self.file_list = QListWidget()
-        self.file_list.setMinimumHeight(90)
+        self.file_list.setMinimumHeight(120)
 
         list_actions = QHBoxLayout()
         self.pick_button = QPushButton("Seleziona file")
@@ -270,7 +282,7 @@ class MainWindow(QMainWindow):
 
         self.log_console = QTextEdit()
         self.log_console.setReadOnly(True)
-        self.log_console.setMinimumHeight(120)
+        self.log_console.setMinimumHeight(150)
         self.log_console.setStyleSheet(
             "background: #000000; color: #22c55e; font-family: Menlo, Monaco, monospace;"
         )
@@ -282,7 +294,13 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.progress)
         layout.addWidget(self.log_console)
 
+        self.statusBar().showMessage("")
+
     def _load_settings(self) -> None:
+        width = int(self.settings.value("window_width", DEFAULT_WINDOW_WIDTH))
+        height = int(self.settings.value("window_height", DEFAULT_WINDOW_HEIGHT))
+        self.resize(max(MIN_WINDOW_WIDTH, width), max(MIN_WINDOW_HEIGHT, height))
+
         quality = int(self.settings.value("quality", 80))
         self.quality_slider.setValue(max(0, min(100, quality)))
         self.prefix_input.setText(self.settings.value("prefix", ""))
@@ -290,6 +308,8 @@ class MainWindow(QMainWindow):
         self.output_input.setText(self.settings.value("output_dir", ""))
 
     def _save_settings(self) -> None:
+        self.settings.setValue("window_width", self.width())
+        self.settings.setValue("window_height", self.height())
         self.settings.setValue("quality", self.quality_slider.value())
         self.settings.setValue("prefix", self.prefix_input.text())
         self.settings.setValue("suffix", self.suffix_input.text())
@@ -298,6 +318,13 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         self._save_settings()
         super().closeEvent(event)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._update_window_size_status()
+
+    def _update_window_size_status(self) -> None:
+        self.statusBar().showMessage(f"Dimensione finestra: {self.width()} x {self.height()}")
 
     def _startup_check_cwebp(self) -> None:
         if not self._check_cwebp(show_popup=True):
@@ -366,8 +393,10 @@ class MainWindow(QMainWindow):
 
     @Slot(list)
     def _add_files(self, paths: list[str]) -> None:
+        had_no_files = len(self.input_files) == 0
         existing = {p.resolve() for p in self.input_files}
         added = 0
+        first_added_parent: Path | None = None
 
         for item in paths:
             path = Path(item).expanduser().resolve()
@@ -379,8 +408,14 @@ class MainWindow(QMainWindow):
                 continue
             self.input_files.append(path)
             self.file_list.addItem(str(path))
+            if first_added_parent is None:
+                first_added_parent = path.parent
             existing.add(path)
             added += 1
+
+        if had_no_files and added > 0 and first_added_parent is not None:
+            self.output_input.setText(str(first_added_parent))
+            self._log("INFO", f"Output auto-impostato: {first_added_parent}")
 
         if added:
             self._log("INFO", f"Aggiunti {added} file")
@@ -544,9 +579,26 @@ def build_output_name(source_path: Path, prefix: str, suffix: str) -> str:
     return f"{'-'.join(chunks)}.webp"
 
 
+def resolve_app_icon() -> QIcon | None:
+    for candidate in ICON_CANDIDATES:
+        if not candidate.exists():
+            continue
+        icon = QIcon(str(candidate))
+        if not icon.isNull():
+            return icon
+    return None
+
+
 def main() -> int:
     app = QApplication(sys.argv)
+    app_icon = resolve_app_icon()
+    if app_icon is not None:
+        app.setWindowIcon(app_icon)
+
     window = MainWindow()
+    if app_icon is not None:
+        window.setWindowIcon(app_icon)
+
     window.show()
     return app.exec()
 
