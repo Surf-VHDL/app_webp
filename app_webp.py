@@ -16,6 +16,7 @@ from PySide6.QtCore import QObject, QSettings, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QFileDialog,
     QFrame,
     QGridLayout,
@@ -29,6 +30,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QProgressBar,
     QSlider,
+    QSpinBox,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -61,11 +63,12 @@ class ConversionWorker(QObject):
     log = Signal(str, str)
     finished = Signal(int, int, int)
 
-    def __init__(self, tasks: list[ConversionTask], quality: int, cwebp_path: str) -> None:
+    def __init__(self, tasks: list[ConversionTask], quality: int, cwebp_path: str, resize: tuple[int, int] | None = None) -> None:
         super().__init__()
         self.tasks = tasks
         self.quality = quality
         self.cwebp_path = cwebp_path
+        self.resize = resize
 
     @Slot()
     def run(self) -> None:
@@ -79,6 +82,10 @@ class ConversionWorker(QObject):
                 self.cwebp_path,
                 "-q",
                 str(self.quality),
+            ]
+            if self.resize is not None:
+                cmd += ["-resize", str(self.resize[0]), str(self.resize[1])]
+            cmd += [
                 str(task.source_path),
                 "-o",
                 str(task.output_path),
@@ -123,14 +130,18 @@ class DropZone(QFrame):
         self.setObjectName("dropZone")
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(6)
 
         title = QLabel("Trascina qui le immagini")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-size: 20px; font-weight: 600;")
+        title.setWordWrap(True)
+        title.setStyleSheet("font-size: 16px; font-weight: 600;")
 
         subtitle = QLabel("Supporta JPG, JPEG, PNG. Rilascio multiplo.")
         subtitle.setAlignment(Qt.AlignCenter)
+        subtitle.setWordWrap(True)
+        subtitle.setStyleSheet("font-size: 12px;")
 
         layout.addStretch(1)
         layout.addWidget(title)
@@ -217,11 +228,11 @@ class MainWindow(QMainWindow):
         layout.setSpacing(12)
 
         self.drop_zone = DropZone()
-        self.drop_zone.setMinimumHeight(155)
+        self.drop_zone.setFixedSize(170, 170)
         self.drop_zone.files_dropped.connect(self._add_files)
 
         self.file_list = QListWidget()
-        self.file_list.setMinimumHeight(120)
+        self.file_list.setMinimumHeight(130)
 
         list_actions = QHBoxLayout()
         self.pick_button = QPushButton("Seleziona file")
@@ -229,8 +240,6 @@ class MainWindow(QMainWindow):
         self.count_label = QLabel("0 file in coda")
         list_actions.addWidget(self.pick_button)
         list_actions.addWidget(self.clear_button)
-        list_actions.addStretch(1)
-        list_actions.addWidget(self.count_label)
 
         self.pick_button.clicked.connect(self._pick_files)
         self.clear_button.clicked.connect(self._clear_files)
@@ -264,6 +273,31 @@ class MainWindow(QMainWindow):
         self.clear_output_button.clicked.connect(lambda: self.output_input.setText(""))
         self.start_button.clicked.connect(self._start_conversion)
 
+        self.resize_checkbox = QCheckBox("Ridimensiona")
+        self.resize_w_spinbox = QSpinBox()
+        self.resize_w_spinbox.setRange(0, 9999)
+        self.resize_w_spinbox.setValue(0)
+        self.resize_w_spinbox.setSpecialValueText("auto")
+        self.resize_w_spinbox.setSuffix(" px")
+        self.resize_h_spinbox = QSpinBox()
+        self.resize_h_spinbox.setRange(0, 9999)
+        self.resize_h_spinbox.setValue(0)
+        self.resize_h_spinbox.setSpecialValueText("auto")
+        self.resize_h_spinbox.setSuffix(" px")
+        self.resize_w_spinbox.setEnabled(False)
+        self.resize_h_spinbox.setEnabled(False)
+        self.resize_checkbox.toggled.connect(self.resize_w_spinbox.setEnabled)
+        self.resize_checkbox.toggled.connect(self.resize_h_spinbox.setEnabled)
+
+        resize_row = QHBoxLayout()
+        resize_row.addWidget(self.resize_checkbox)
+        resize_row.addStretch(1)
+        resize_row.addWidget(QLabel("W:"))
+        resize_row.addWidget(self.resize_w_spinbox)
+        resize_row.addWidget(QLabel("H:"))
+        resize_row.addWidget(self.resize_h_spinbox)
+        resize_row.addWidget(QLabel("(0 = proporzionale)"))
+
         controls_grid.addWidget(QLabel("Qualita"), 0, 0)
         controls_grid.addWidget(self.quality_slider, 0, 1)
         controls_grid.addWidget(self.quality_label, 0, 2)
@@ -287,9 +321,29 @@ class MainWindow(QMainWindow):
             "background: #000000; color: #22c55e; font-family: Menlo, Monaco, monospace;"
         )
 
-        layout.addWidget(self.drop_zone)
-        layout.addLayout(list_actions)
-        layout.addWidget(self.file_list)
+        input_group = QGroupBox("Input immagini")
+        input_group_layout = QVBoxLayout(input_group)
+        input_group_layout.setContentsMargins(10, 10, 10, 10)
+        input_group_layout.setSpacing(10)
+
+        top_row = QHBoxLayout()
+        top_row.setSpacing(12)
+        top_row.addWidget(self.drop_zone, 0, Qt.AlignTop | Qt.AlignLeft)
+
+        quick_controls = QVBoxLayout()
+        quick_controls.setSpacing(8)
+        quick_controls.addLayout(list_actions)
+        quick_controls.addWidget(self.count_label, 0, Qt.AlignLeft)
+        quick_controls.addLayout(resize_row)
+        quick_controls.addStretch(1)
+
+        top_row.addLayout(quick_controls, 1)
+
+        input_group_layout.addLayout(top_row)
+        input_group_layout.addWidget(QLabel("Coda file"))
+        input_group_layout.addWidget(self.file_list)
+
+        layout.addWidget(input_group)
         layout.addWidget(controls)
         layout.addWidget(self.progress)
         layout.addWidget(self.log_console)
@@ -306,6 +360,10 @@ class MainWindow(QMainWindow):
         self.prefix_input.setText(self.settings.value("prefix", ""))
         self.suffix_input.setText(self.settings.value("suffix", ""))
         self.output_input.setText(self.settings.value("output_dir", ""))
+        resize_enabled = self.settings.value("resize_enabled", False, type=bool)
+        self.resize_checkbox.setChecked(resize_enabled)
+        self.resize_w_spinbox.setValue(int(self.settings.value("resize_w", 0)))
+        self.resize_h_spinbox.setValue(int(self.settings.value("resize_h", 0)))
 
     def _save_settings(self) -> None:
         self.settings.setValue("window_width", self.width())
@@ -314,6 +372,9 @@ class MainWindow(QMainWindow):
         self.settings.setValue("prefix", self.prefix_input.text())
         self.settings.setValue("suffix", self.suffix_input.text())
         self.settings.setValue("output_dir", self.output_input.text())
+        self.settings.setValue("resize_enabled", self.resize_checkbox.isChecked())
+        self.settings.setValue("resize_w", self.resize_w_spinbox.value())
+        self.settings.setValue("resize_h", self.resize_h_spinbox.value())
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         self._save_settings()
@@ -478,8 +539,12 @@ class MainWindow(QMainWindow):
         self._set_controls_enabled(False)
         self._save_settings()
 
+        resize: tuple[int, int] | None = None
+        if self.resize_checkbox.isChecked():
+            resize = (self.resize_w_spinbox.value(), self.resize_h_spinbox.value())
+
         self.worker_thread = QThread(self)
-        self.worker = ConversionWorker(tasks=tasks, quality=quality, cwebp_path=self.cwebp_path)
+        self.worker = ConversionWorker(tasks=tasks, quality=quality, cwebp_path=self.cwebp_path, resize=resize)
         self.worker.moveToThread(self.worker_thread)
 
         self.worker_thread.started.connect(self.worker.run)
@@ -553,6 +618,13 @@ class MainWindow(QMainWindow):
         self.prefix_input.setEnabled(enabled)
         self.suffix_input.setEnabled(enabled)
         self.quality_slider.setEnabled(enabled)
+        self.resize_checkbox.setEnabled(enabled)
+        if enabled:
+            self.resize_w_spinbox.setEnabled(self.resize_checkbox.isChecked())
+            self.resize_h_spinbox.setEnabled(self.resize_checkbox.isChecked())
+        else:
+            self.resize_w_spinbox.setEnabled(False)
+            self.resize_h_spinbox.setEnabled(False)
 
 
 def to_kebab_case(value: str) -> str:
