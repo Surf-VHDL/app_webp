@@ -182,7 +182,8 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("app_webp")
-        self.resize(980, 760)
+        self.resize(920, 620)
+        self.setMinimumSize(760, 460)
 
         self.settings = QSettings(APP_ORG, APP_NAME)
         self.input_files: list[Path] = []
@@ -204,11 +205,11 @@ class MainWindow(QMainWindow):
         layout.setSpacing(12)
 
         self.drop_zone = DropZone()
-        self.drop_zone.setMinimumHeight(220)
+        self.drop_zone.setMinimumHeight(140)
         self.drop_zone.files_dropped.connect(self._add_files)
 
         self.file_list = QListWidget()
-        self.file_list.setMinimumHeight(140)
+        self.file_list.setMinimumHeight(90)
 
         list_actions = QHBoxLayout()
         self.pick_button = QPushButton("Seleziona file")
@@ -269,7 +270,7 @@ class MainWindow(QMainWindow):
 
         self.log_console = QTextEdit()
         self.log_console.setReadOnly(True)
-        self.log_console.setMinimumHeight(180)
+        self.log_console.setMinimumHeight(120)
         self.log_console.setStyleSheet(
             "background: #000000; color: #22c55e; font-family: Menlo, Monaco, monospace;"
         )
@@ -341,7 +342,7 @@ class MainWindow(QMainWindow):
         self._log("INFO", "Lista input pulita")
 
     def _pick_output_dir(self) -> None:
-        start_dir = self.output_input.text() or str(Path.home())
+        start_dir = self._output_dialog_start_dir()
         selected = QFileDialog.getExistingDirectory(
             self,
             "Seleziona cartella output",
@@ -350,6 +351,18 @@ class MainWindow(QMainWindow):
         if selected:
             self.output_input.setText(selected)
             self._log("INFO", f"Output selezionato: {selected}")
+
+    def _output_dialog_start_dir(self) -> str:
+        configured = self.output_input.text().strip()
+        if configured:
+            configured_path = Path(configured).expanduser()
+            if configured_path.exists() and configured_path.is_dir():
+                return str(configured_path)
+
+        if self.input_files:
+            return str(self.input_files[0].parent)
+
+        return str(Path.home())
 
     @Slot(list)
     def _add_files(self, paths: list[str]) -> None:

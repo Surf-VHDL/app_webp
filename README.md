@@ -88,6 +88,7 @@ uv run python app_webp.py
 - Slider qualita 0-100 (default 80)
 - Campi opzionali prefisso/suffisso
 - Cartella output selezionabile (default: cartella file sorgente)
+- Selezione cartella output: il dialog parte dalla cartella del primo file in coda (se presente)
 - Naming SEO: `prefisso-nome-pulito-suffisso.webp`
 - Popup di conferma in caso di file output gia esistente:
   - Yes / No / Yes to All / No to All / Cancel
