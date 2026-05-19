@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """app_webp - Desktop converter JPG/PNG -> WebP via cwebp."""
 
+__version__ = "1.1.0"
+
 from __future__ import annotations
 
 import re
@@ -17,6 +19,7 @@ from PySide6.QtGui import QCloseEvent, QDragEnterEvent, QDropEvent, QIcon
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QComboBox,
     QFileDialog,
     QFrame,
     QGridLayout,
@@ -43,6 +46,7 @@ DEFAULT_WINDOW_WIDTH = 960
 DEFAULT_WINDOW_HEIGHT = 830
 MIN_WINDOW_WIDTH = 820
 MIN_WINDOW_HEIGHT = 600
+CM_TO_PX = 37.795  # Conversione standard: 1 cm = 37.795 pixel (96 DPI)
 APP_DIR = Path(__file__).resolve().parent
 ICON_CANDIDATES = [
     APP_DIR / "assets" / "icon.icns",
@@ -203,7 +207,7 @@ class DropZone(QFrame):
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("app_webp")
+        self.setWindowTitle(f"app_webp v{__version__}")
         self.resize(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT)
         self.setMinimumSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)
 
@@ -274,6 +278,11 @@ class MainWindow(QMainWindow):
         self.start_button.clicked.connect(self._start_conversion)
 
         self.resize_checkbox = QCheckBox("Ridimensiona")
+        # Combobox per selezionare l'unità di misura
+        self.resize_unit_combo = QComboBox()
+        self.resize_unit_combo.addItems(["px", "cm"])
+        self.resize_unit_combo.setMaximumWidth(60)
+        self.resize_unit_combo.setEnabled(False)
         self.resize_w_spinbox = QSpinBox()
         self.resize_w_spinbox.setRange(0, 9999)
         self.resize_w_spinbox.setValue(0)
@@ -288,9 +297,14 @@ class MainWindow(QMainWindow):
         self.resize_h_spinbox.setEnabled(False)
         self.resize_checkbox.toggled.connect(self.resize_w_spinbox.setEnabled)
         self.resize_checkbox.toggled.connect(self.resize_h_spinbox.setEnabled)
+        self.resize_checkbox.toggled.connect(self.resize_unit_combo.setEnabled)
+        # Connetti il cambio di unità per aggiornare i suffix
+        self.resize_unit_combo.currentTextChanged.connect(self._update_resize_unit_display)
 
         resize_row = QHBoxLayout()
         resize_row.addWidget(self.resize_checkbox)
+        resize_row.addWidget(QLabel("Unità:"))
+        resize_row.addWidget(self.resize_unit_combo)
         resize_row.addStretch(1)
         resize_row.addWidget(QLabel("W:"))
         resize_row.addWidget(self.resize_w_spinbox)
@@ -364,6 +378,9 @@ class MainWindow(QMainWindow):
         self.resize_checkbox.setChecked(resize_enabled)
         self.resize_w_spinbox.setValue(int(self.settings.value("resize_w", 0)))
         self.resize_h_spinbox.setValue(int(self.settings.value("resize_h", 0)))
+        # Carica l'unità di misura selezionata
+        resize_unit = self.settings.value("resize_unit", "px")
+        self.resize_unit_combo.setCurrentText(resize_unit)
 
     def _save_settings(self) -> None:
         self.settings.setValue("window_width", self.width())
@@ -374,7 +391,15 @@ class MainWindow(QMainWindow):
         self.settings.setValue("output_dir", self.output_input.text())
         self.settings.setValue("resize_enabled", self.resize_checkbox.isChecked())
         self.settings.setValue("resize_w", self.resize_w_spinbox.value())
-        self.settings.setValue("resize_h", self.resize_h_spinbox.value())
+        self.settings.setValue("resize_unit", self.resize_unit_combo.currentText())
+
+    def _update_resize_unit_display(self) -> None:
+        """Aggiorna il suffix delle spinbox in base all'unità di misura selezionata."""
+        unit = self.resize_unit_combo.currentText()
+        self.resize_w_spinbox.setSuffix(f" {unit}")
+        self.resize_h_spinbox.setSuffix(f" {unit}")
+        # Salva l'unità di misura selezionata
+        self.settings.setValue("resize_unit", self.resize_unit_combo.currentText())
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         self._save_settings()
@@ -539,9 +564,16 @@ class MainWindow(QMainWindow):
         self._set_controls_enabled(False)
         self._save_settings()
 
+        # Prepara il resize, convertendo da cm a px se necessario
         resize: tuple[int, int] | None = None
         if self.resize_checkbox.isChecked():
-            resize = (self.resize_w_spinbox.value(), self.resize_h_spinbox.value())
+            w = self.resize_w_spinbox.value()
+            h = self.resize_h_spinbox.value()
+            # Converti da cm a pixel se necessario
+            if self.resize_unit_combo.currentText() == "cm":
+                w = int(w * CM_TO_PX) if w > 0 else 0
+                h = int(h * CM_TO_PX) if h > 0 else 0
+            resize = (w, h)
 
         self.worker_thread = QThread(self)
         self.worker = ConversionWorker(tasks=tasks, quality=quality, cwebp_path=self.cwebp_path, resize=resize)
