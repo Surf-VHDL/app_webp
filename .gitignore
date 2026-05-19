@@ -1,0 +1,30 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environments and runtime artifacts
+.venv/
+.local/
+
+# Build and packaging artifacts
+build/
+dist/
+*.spec
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+
+# OS/editor artifacts (Windows)
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Optional IDE folders
+.vscode/
+.idea/

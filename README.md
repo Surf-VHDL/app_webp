@@ -127,7 +127,7 @@ iconutil -c icns assets/icon.iconset -o assets/icon.icns
   - verifica installazione con `uv --version`.
   - in caso assente: `brew install uv`.
 
-## Funzioni principali (V1.1)
+## Funzioni principali (V1.2)
 
 - Drag and drop multiplo di file JPG/JPEG/PNG
 - Pulsante per selezione file input

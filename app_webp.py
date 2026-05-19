@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """app_webp - Desktop converter JPG/PNG -> WebP via cwebp."""
 
-__version__ = "1.1.0"
-
 from __future__ import annotations
+
+__version__ = "1.2.0"
 
 import re
 import shutil
