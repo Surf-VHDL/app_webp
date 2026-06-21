@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""app_webp - Desktop converter JPG/PNG -> WebP via cwebp."""
+"""app_webp - Desktop converter JPG/PNG/WebP -> WebP via cwebp."""
 
 from __future__ import annotations
 
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 
 import re
 import shutil
@@ -41,7 +41,7 @@ from PySide6.QtWidgets import (
 
 APP_ORG = "app_webp"
 APP_NAME = "app_webp"
-SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+SUPPORTED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 DEFAULT_WINDOW_WIDTH = 960
 DEFAULT_WINDOW_HEIGHT = 830
 MIN_WINDOW_WIDTH = 820
@@ -142,7 +142,7 @@ class DropZone(QFrame):
         title.setWordWrap(True)
         title.setStyleSheet("font-size: 16px; font-weight: 600;")
 
-        subtitle = QLabel("Supporta JPG, JPEG, PNG. Rilascio multiplo.")
+        subtitle = QLabel("Supporta JPG, JPEG, PNG, WebP. Rilascio multiplo.")
         subtitle.setAlignment(Qt.AlignCenter)
         subtitle.setWordWrap(True)
         subtitle.setStyleSheet("font-size: 12px;")
@@ -443,7 +443,7 @@ class MainWindow(QMainWindow):
             self,
             "Seleziona immagini",
             "",
-            "Immagini (*.jpg *.jpeg *.png)",
+            "Immagini (*.jpg *.jpeg *.png *.webp)",
         )
         if files:
             self._add_files(files)
