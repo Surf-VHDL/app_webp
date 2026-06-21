@@ -1,6 +1,6 @@
 # app_webp
 
-App desktop Python (PySide6) per convertire immagini JPG/PNG in WebP usando il comando di sistema `cwebp`.
+App desktop Python (PySide6) per convertire immagini JPG/PNG/WebP in WebP usando il comando di sistema `cwebp`.
 
 ## Requisiti esterni (non Python)
 
@@ -127,9 +127,9 @@ iconutil -c icns assets/icon.iconset -o assets/icon.icns
   - verifica installazione con `uv --version`.
   - in caso assente: `brew install uv`.
 
-## Funzioni principali (V1.2)
+## Funzioni principali (V1.2.1)
 
-- Drag and drop multiplo di file JPG/JPEG/PNG
+- Drag and drop multiplo di file JPG/JPEG/PNG/WebP
 - Pulsante per selezione file input
 - Slider qualita 0-100 (default 80)
 - Campi opzionali prefisso/suffisso
